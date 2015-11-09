@@ -44,7 +44,10 @@
   :plugins [[lein-environ "1.0.1"]
             [migratus-lein "0.2.0"]
             [lein-cljsbuild "1.1.0"]]
-  :clean-targets ^{:protect false} [:target-path [:cljsbuild :builds :app :compiler :output-dir] [:cljsbuild :builds :app :compiler :output-to]]
+  :clean-targets ^{:protect false}
+  [:target-path
+   [:cljsbuild :builds :app :compiler :output-dir]
+   [:cljsbuild :builds :app :compiler :output-to]]
   :cljsbuild
   {:builds
    {:app
