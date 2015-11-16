@@ -2,6 +2,8 @@
   (:require
     [cheshire.core :refer [generate-string parse-string]]
     [clojure.java.jdbc :as jdbc]
+    [clj-time.core :as tc]
+    [clj-time.coerce :as tco]
     [conman.core :as conman]
     [environ.core :refer [env]])
   (:import org.postgresql.util.PGobject
@@ -15,6 +17,7 @@
             PreparedStatement]))
 
 (defonce ^:dynamic *conn* (atom nil))
+
 
 (conman/bind-connection *conn* "sql/queries.sql")
 
@@ -73,3 +76,5 @@
   (sql-value [value] (to-pg-json value))
   IPersistentVector
   (sql-value [value] (to-pg-json value)))
+
+(defn sql-now [] (tco/to-sql-time (tc/now)))

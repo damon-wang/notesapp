@@ -18,7 +18,8 @@
 
 (defn stop-nrepl []
   (when-let [server @nrepl-server]
-    (nrepl/stop-server server)))
+    (nrepl/stop-server server)
+    (reset! server nil)))
 
 (defn start-nrepl
   "Start a network repl for debugging when the :nrepl-port is set in the environment."
@@ -42,7 +43,7 @@
 
 (defn start-http-server [port]
   (init)
-  (reset! http-server (immutant/run app :host "0.0.0.0" :port port)))
+  (reset! http-server (immutant/run #'app :host "0.0.0.0" :port port)))
 
 (defn stop-http-server []
   (when @http-server
@@ -65,4 +66,3 @@
   (cond
     (some #{"migrate" "rollback"} args) (migrations/migrate args)
     :else (start-app args)))
-  

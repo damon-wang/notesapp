@@ -1,0 +1,83 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    // font-size: 1.2em;
+    height: 100%;
+    // background-color: orange;
+}
+
+* {
+    box-sizing:border-box;
+    -moz-box-sizing:border-box;
+    -webkit-box-sizing:border-box;
+}
+
+.clear:after {
+    content: " ";
+    display: table;
+    clear: both;
+}
+div#app {
+    border: 1px solid blue;
+    // background-color: orange;
+    float: left; // 注意, float 是需要的, 否则顶部的空白去除不掉;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    div#loading {
+        position: absolute;
+        top: 0;
+        width: 10em;
+        // left: 0;
+        right: 0;
+        background-color: yellow;
+        p {
+            padding: 0.5em;
+            text-align: center;
+            margin: 0;
+        }
+    }
+}
+
+div#left-bar {
+    float: left;
+    width: 20%;
+    height: 100%;
+    ul {
+        list-style-type: none;
+        padding-left: 1em;
+        margin-left: 0;
+        width: 100%;
+    }
+    li {
+        padding: 0.2em 0.5em;
+        // border-left: 0.2em solid blue;
+    }
+    li:hover {
+        // background-color: orange;
+        cursor: pointer;
+        border-bottom: 1px solid blue;
+    }
+    
+    /* border: 1px solid purple; */
+    // height: 100%;
+}
+div#content-panel {
+    float: right;
+    width: 80%;
+    height: 100%;
+    padding-left: 2em;
+    background-color: "white";
+    border-left: 1px dotted gray;
+    div#edit-block {
+        // height: 4em;
+        border-bottom: 1px dotted gray;
+        padding: 1em;
+        input#new-tag {
+            // height: 3em;
+            padding: .4em 0;
+            width: 30em;
+            font-size: 1.4em;
+        }
+    }
+}

@@ -2,6 +2,7 @@
   (:require [compojure.core :refer [defroutes routes wrap-routes]]
             [notesapp.layout :refer [error-page]]
             [notesapp.routes.home :refer [home-routes]]
+            [notesapp.routes.app-routes :refer [app-routes]]
             [notesapp.middleware :as middleware]
             [notesapp.db.core :as db]
             [compojure.route :as route]
@@ -39,12 +40,13 @@
   (db/disconnect!)
   (timbre/info "shutdown complete!"))
 
-(def app-routes
+(def all-routes
   (routes
-    (wrap-routes #'home-routes middleware/wrap-csrf)
-    (route/not-found
-      (:body
-        (error-page {:status 404
-                     :title "page not found"})))))
+   #'app-routes
+   (wrap-routes #'home-routes middleware/wrap-csrf)
+   (route/not-found
+    (:body
+     (error-page {:status 404
+                  :title "page not found"})))))
 
-(def app (middleware/wrap-base #'app-routes))
+(def app (middleware/wrap-base #'all-routes))

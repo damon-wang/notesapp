@@ -1,9 +1,16 @@
-(defproject notesapp "0.1.0-SNAPSHOT"
+(defproject notesapp "0.1.0"
 
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "A practical notes app for daily usage"
+  :url "http://damon-wang.com/notesapp"
 
   :dependencies [[org.clojure/clojure "1.7.0"]
+                 [org.clojure/tools.namespace "0.2.11"]
+                 [clj-ns-browser "1.3.1"]
+                 ;; [alembic "0.3.2"]
+                 ;; [spyscope "0.1.4"]
+                 ;; [im.chit/vinyasa "0.4.2"]
+                 [clj-time "0.9.0"]
+                 [figwheel-sidecar "0.4.1"]
                  [selmer "0.9.4"]
                  [com.taoensso/timbre "4.1.4"]
                  [com.taoensso/tower "3.0.2"]
@@ -29,6 +36,7 @@
                  [reagent "0.5.1"]
                  [reagent-forms "0.5.13"]
                  [reagent-utils "0.1.5"]
+                 [re-frame "0.5.0"]
                  [secretary "1.2.3"]
                  [org.clojure/core.async "0.2.371"]
                  [cljs-ajax "0.5.1"]
@@ -38,7 +46,10 @@
   :uberjar-name "notesapp.jar"
   :jvm-opts ["-server"]
 
-  :main notesapp.core
+  :source-paths ["src" "src-cljs"]
+
+  ;; :main notesapp.core
+  :libdir-path "personal/lib"  ;; lein libdir
   :migratus {:store :database}
 
   :plugins [[lein-environ "1.0.1"]
@@ -52,11 +63,14 @@
   {:builds
    {:app
     {:source-paths ["src-cljs"]
+     :figwheel {:on-jsload "notesapp.front.core/on-reload" }
      :compiler
-     {:output-to "resources/public/js/app.js"
+     {:main notesapp.front.core
+      :asset-path "js/out"
+      :output-to "resources/public/js/app.js"
       :output-dir "resources/public/js/out"
-      :externs ["react/externs/react.js"]
-      :pretty-print true}}}}
+      ;; :source-map-timestamp true
+      :source-map true}}}}
   
   :profiles
   {:uberjar {:omit-source true
@@ -76,22 +90,35 @@
                                  [pjstadig/humane-test-output "0.7.0"]
                                  [com.cemerick/piggieback "0.1.5"]
                                  [lein-figwheel "0.4.1"]
+                                 [cider/cider-nrepl "0.10.0-SNAPSHOT"]
+                                 ;; [refactor-nrepl "1.1.0"]
                                  [mvxcvi/puget "1.0.0"]]
                   :plugins [[lein-figwheel "0.4.1"]]
                    :cljsbuild
                    {:builds
                     {:app
-                     {:source-paths ["env/dev/cljs"] :compiler {:source-map true}}}} 
+                     {:source-paths ["env/dev/cljs"]
+                      ;; :compiler {:source-map true}
+                      }}} 
                   
                   :figwheel
                   {:http-server-root "public"
                    :server-port 3449
                    :nrepl-port 7002
-                   :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"]
+                   :nrepl-middleware
+                   ["cider.nrepl/cider-middleware"
+                    "refactor-nrepl.middleware/wrap-refactor"
+                    "cemerick.piggieback/wrap-cljs-repl"
+                    ]
+                   ;; :ring-handler notesapp.handler/app
+
                    :css-dirs ["resources/public/css"]
-                   :ring-handler notesapp.handler/app}
+                   }
                   
-                  :repl-options {:init-ns notesapp.core}
+                  :repl-options
+                  {:port 6677
+                   ;; :init-ns notesapp.core
+                   }
                   :injections [(require 'pjstadig.humane-test-output)
                                (pjstadig.humane-test-output/activate!)]
                   ;;when :nrepl-port is set the application starts the nREPL server on load
