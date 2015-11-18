@@ -30,6 +30,8 @@
 - Programming Clojure
 - The Joy of Clojure
 - Clojure Reactive Programming
+- 营养圣经
+- 餐桌上的营养学丛书(10本)
 
 ## 相关链接
 
