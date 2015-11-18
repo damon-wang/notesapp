@@ -8,17 +8,17 @@
         ;; val (atom "")
         ]
     (fn []
-      [:input {:type "text"
+      [:input#tags-filter {:type "text"
                ;; :value @val
                :on-change #(let [iv (-> % .-target .-value)]
                              ;; (reset! val iv)
-                             (dispatch-sync [:set-match-str iv]))}])))
+                             (dispatch-sync [:set-tags-filter iv]))}])))
 
 (defn click-tag [tag-id]
   (fn [] (js/console.log "click: " tag-id)))
 
 (defn tags-list []
-  (let [tags (subscribe [:sorted-tags])]
+  (let [tags (subscribe [:filtered-tags])]
     (fn []
       ;; (println "subscribe-----")
       ;; (pprint @tags)
@@ -39,11 +39,35 @@
   (with-meta identity
     {:component-did-mount #(.focus (reagent/dom-node %))}))
 
+(defn entry-crud-on-keydown [e]
+  (println "keyCode type:" (number? (.-keyCode e)) ", ctrl: " (.-ctrlKey e))
+  (println "event properties:" (js/Object.keys e))
+  (.preventDefault e))
+
+(defn handle-submit [e]
+  (let [el (.getElementById js/document "new-tag")]
+    (println (.-value el))
+    (set! (.-value el) "")))
+
 (defn entry-crud-block []
   (let []
     (fn []
       [:div#edit-block
-       [initial-focus-wrapper [:input {:id "new-tag" :type "text" :on-change nil}]]])))
+       ;; [initial-focus-wrapper]
+       [:input {:id "new-tag" :type "text" :on-change nil
+                ;; :on-key-down entry-crud-on-keydown
+                }]
+       [:button {:type "submit"
+                 :on-click handle-submit} "保存"]
+       [:div#tags-block
+        [:span.notetag [:span.close "x"] "tag-1"]
+        [:span.notetag [:span.close "x"]"tag-2"]
+        [:span.notetag [:span.close "x"] "tag-3"]
+        [:span#tags-wrapper
+         [:input {:id "note-tags" :type "text"}]
+         [:div#completions
+          [:p "one"]
+          [:p "two"]]]]])))
 
 (defn notes-block []
   (let [notes (subscribe [:sorted-notes])]
@@ -62,8 +86,9 @@
 (defn main-panel []
   [:div {:style {:width "100%" :height "100%"}}
    [:div#left-bar
-    ;; [tags-filter]
-    [tags-list]]
+    [tags-filter]
+    [tags-list]
+    ]
    [:div#content-panel
     [entry-crud-block]
     [notes-block]]])

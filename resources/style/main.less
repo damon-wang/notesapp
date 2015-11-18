@@ -43,6 +43,18 @@ div#left-bar {
     float: left;
     width: 20%;
     height: 100%;
+    input#tags-filter {
+        width: 100%;
+        padding: .2em;
+        // margin-top: .5em;
+        font-size: 1.2em;
+        outline: none;
+        border: solid 1px blue;
+        transition: box-shadow 0.3s, border 0.3s;
+        &:focus {
+            box-shadow: 0 0 3px 1px blue;
+        }
+    }
     ul {
         list-style-type: none;
         padding-left: 1em;
@@ -75,9 +87,47 @@ div#content-panel {
         padding: 1em;
         input#new-tag {
             // height: 3em;
-            padding: .4em 0;
+            padding: .2em 0;
             width: 30em;
             font-size: 1.4em;
+            border: none;
+            background-color: lightgray;
+            &:focus {
+                outline: 0;
+            }
+        }
+        div#tags-block {
+            width: 100%;
+            margin-top: 0.4em;
+            border: 1px solid blue;
+            span.notetag {
+                padding: 0 .2em;
+                background-color: lightblue;
+                margin-right: .2em;
+                span.close {
+                    margin-right: .4em;
+                    background-color: gray;
+                }
+            }
+            span#tags-wrapper {
+                input#note-tags {
+                    font-size: 1.2em;
+                    // margin-left: .4em;
+                    width: 15em;
+                }
+                position: relative;
+                #completions {
+                    width: 10em;
+                    background-color: orange;
+                    position: absolute;
+                    top: 1.2em;
+                    left: 0em;
+                    p {
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
+            }
         }
     }
 }

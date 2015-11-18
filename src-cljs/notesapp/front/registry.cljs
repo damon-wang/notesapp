@@ -1,6 +1,7 @@
 (ns notesapp.front.registry
   (:require
    [cljs.pprint :refer [pprint]]
+   [clojure.string :as str]
    [reagent.core :as reagent :refer [atom]]
    [ajax.core :refer [GET POST]]
    [re-frame.core :as re-frame :refer
@@ -39,7 +40,7 @@
   (js/setTimeout
    #(GET "/tags" {:handler (fn [res] (dispatch-sync [:reset-tags res]))
                   :response-format :transit
-                  :error-handler error-handler}) 2000))
+                  :error-handler error-handler}) 0))
 (defn get-notes []
   (GET "/notes" {:handler (fn [res]
                             (dispatch-sync [:reset-notes res])
@@ -93,10 +94,37 @@
                      #(compare %2 %1)
                      (:paged-notes @db)))))
 
+
+(defn substr-match? [target-str filter-str]
+  (> (.indexOf (.toLowerCase target-str) (.toLowerCase filter-str)) -1))
+
+(defn query-filtered-tags [db _]
+  (reaction
+   (let [sorted-tags
+         (reaction
+          (mapv #(get % 1)
+                (sort-by (fn [[k v]] (:updated-at v)) #(compare %2 %1) (:tags @db))))
+         ;; (subscribe [:sorted-tags])
+         filter-str (reaction (:tag-filter-str @db))
+         ]
+     ;; (println "filter str:" @filter-str)
+     (if (clojure.string/blank? @filter-str)
+       @sorted-tags
+       (filterv
+        #(substr-match? (:tag-name %) @filter-str)
+        @sorted-tags)))))
+
+
 (defn display-sorted-tags []
   (dispatch-sync [:reset-tags sample-tags])
-  (pprint @(subscribe [:sorted-tags]))
+  ;; (dispatch-sync [:set-tags-filter "养"])
+  (pprint @(subscribe [:filtered-tags]))
   nil)
+
+(defn set-tags-filter [db [_ filter-str]]
+  ;; (println "set tags filter..." filter-str)
+  (-> db
+      (assoc :tag-filter-str (str/trim (or filter-str "")))))
 
 (defn init-appstate-registry []
   (re-frame/clear-event-handlers!)
@@ -104,12 +132,14 @@
   (register-handler :reset-tags nil reset-tags)
   (register-handler :load-home-data load-home-data)
   (register-handler :reset-notes nil reset-notes)
+  (register-handler :set-tags-filter set-tags-filter)
   (register-sub :sorted-tags query-sorted-tags)
+  (register-sub :filtered-tags query-filtered-tags)
   (register-sub :sorted-notes query-sorted-notes)
   (register-sub :home-data-loaded? query-initialized)
   (dispatch-sync [:load-home-data])
-  ;; (js/setTimeout #(dispatch-sync [:reset-tags sample-tags]) 2000)
-  (get-tags)
-  (get-notes)
+  (js/setTimeout #(dispatch-sync [:reset-tags sample-tags]) 1000)
+  ;; (get-tags)
+  ;; (get-notes)
   )
   
