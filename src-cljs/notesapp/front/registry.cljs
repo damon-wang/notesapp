@@ -114,17 +114,40 @@
         #(substr-match? (:tag-name %) @filter-str)
         @sorted-tags)))))
 
+(defn query-matched-tags [db _]
+  (reaction
+   (let [sorted-tags
+         (reaction
+          (mapv #(get % 1)
+                (sort-by (fn [[k v]] (:updated-at v)) #(compare %2 %1) (:tags @db))))
+         ;; (subscribe [:sorted-tags])
+         match-str (reaction (:tags-match-str @db))
+         ]
+     ;; (println "filter str:" @filter-str)
+     (if (clojure.string/blank? @match-str)
+       []
+       (filterv
+        #(substr-match? (:tag-name %) @match-str)
+        @sorted-tags)))))
+
 
 (defn display-sorted-tags []
-  (dispatch-sync [:reset-tags sample-tags])
+  ;; (dispatch-sync [:reset-tags sample-tags])
   ;; (dispatch-sync [:set-tags-filter "养"])
-  (pprint @(subscribe [:filtered-tags]))
+  (dispatch-sync [:set-tags-match-str "养"])
+  (pprint @(subscribe [:matched-tags]))
   nil)
 
 (defn set-tags-filter [db [_ filter-str]]
   ;; (println "set tags filter..." filter-str)
   (-> db
       (assoc :tag-filter-str (str/trim (or filter-str "")))))
+
+(defn set-tags-match-str [db [_ tags-input-str]]
+  (-> db
+      (assoc :tags-match-str (str/trim (or tags-input-str "")))))
+
+
 
 (defn init-appstate-registry []
   (re-frame/clear-event-handlers!)
@@ -133,13 +156,15 @@
   (register-handler :load-home-data load-home-data)
   (register-handler :reset-notes nil reset-notes)
   (register-handler :set-tags-filter set-tags-filter)
+  (register-handler :set-tags-match-str set-tags-match-str)
   (register-sub :sorted-tags query-sorted-tags)
   (register-sub :filtered-tags query-filtered-tags)
+  (register-sub :matched-tags query-matched-tags)
   (register-sub :sorted-notes query-sorted-notes)
   (register-sub :home-data-loaded? query-initialized)
   (dispatch-sync [:load-home-data])
   (js/setTimeout #(dispatch-sync [:reset-tags sample-tags]) 1000)
   ;; (get-tags)
-  ;; (get-notes)
+  (get-notes)
   )
   

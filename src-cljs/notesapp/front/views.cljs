@@ -3,16 +3,18 @@
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]
             [cljs.pprint :refer [pprint]]))
 
+(declare dispatch-user-input handle-tags-input)
+
 (defn tags-filter []
   (let [
         ;; val (atom "")
         ]
     (fn []
       [:input#tags-filter {:type "text"
-               ;; :value @val
-               :on-change #(let [iv (-> % .-target .-value)]
-                             ;; (reset! val iv)
-                             (dispatch-sync [:set-tags-filter iv]))}])))
+                           :on-change #(dispatch-user-input :set-tags-filter %)}])))
+(defn dispatch-user-input [event-id dom-evt]
+  (let [iv (-> dom-evt .-target .-value)]
+    (dispatch-sync [event-id iv])))
 
 (defn click-tag [tag-id]
   (fn [] (js/console.log "click: " tag-id)))
@@ -39,15 +41,31 @@
   (with-meta identity
     {:component-did-mount #(.focus (reagent/dom-node %))}))
 
-(defn entry-crud-on-keydown [e]
-  (println "keyCode type:" (number? (.-keyCode e)) ", ctrl: " (.-ctrlKey e))
-  (println "event properties:" (js/Object.keys e))
-  (.preventDefault e))
+;; enter: 13, tab: 9, esc: 27, arrow down: 40, up: 38
+(def key-codes-map {:enter 13 :esc 27 :down 40 :up 38})
+(defn debug-event [e]
+  (let [keyCode (.-keyCode e)]
+    (println "key code:" keyCode ", is number? " (number? keyCode) ", ctrl: " (.-ctrlKey e))
+    ;; (println "event properties:" (js/Object.keys e))
+    (condp #(= (get key-codes-map %1) %2) keyCode
+      :esc (do (set! (.-value (.-target e)) "")
+               (dispatch-sync [:set-tags-match-str ""])
+               (.preventDefault e))
+      nil)
+    ))
 
 (defn handle-submit [e]
   (let [el (.getElementById js/document "new-tag")]
     (println (.-value el))
     (set! (.-value el) "")))
+
+(defn tag-completions-div []
+  (let [matched-tags (subscribe [:matched-tags])]
+    (fn []
+      [:div#completions
+       (for [tag-candidate @matched-tags]
+         (let [{:keys [id]} tag-candidate]
+           [:p {:key (:id tag-candidate)} (:tag-name tag-candidate)]))])))
 
 (defn entry-crud-block []
   (let []
@@ -55,24 +73,27 @@
       [:div#edit-block
        ;; [initial-focus-wrapper]
        [:input {:id "new-tag" :type "text" :on-change nil
-                ;; :on-key-down entry-crud-on-keydown
+                ;; :on-key-down debug-event
                 }]
        [:button {:type "submit"
                  :on-click handle-submit} "保存"]
        [:div#tags-block
-        [:span.notetag [:span.close "x"] "tag-1"]
-        [:span.notetag [:span.close "x"]"tag-2"]
-        [:span.notetag [:span.close "x"] "tag-3"]
+        [:span.notetag "tag-1"]
+        [:span.notetag "tag-2"]
+        [:span.notetag "tag-3"]
         [:span#tags-wrapper
-         [:input {:id "note-tags" :type "text"}]
-         [:div#completions
-          [:p "one"]
-          [:p "two"]]]]])))
+         [:input#note-tags
+          {:type "text"
+           :on-change #(dispatch-user-input :set-tags-match-str %)
+           :on-key-down handle-tags-input}]
+         [tag-completions-div]]]])))
+(defn handle-tags-input [e]
+  (debug-event e))
 
 (defn notes-block []
   (let [notes (subscribe [:sorted-notes])]
     (fn []
-      (pprint @notes)
+      ;; (pprint @notes)
       [:div#notes-block
        [:ul
         (for [note @notes]
@@ -83,6 +104,11 @@
         ;; [:p "hello, notes block"]
         ]])))
 
+(defn edit-tab-banner []
+  [:div#edit-tab-banner.clear
+   [:ul#tab-banner
+    [:li.active "笔记"]
+    [:li "标签"]]])
 (defn main-panel []
   [:div {:style {:width "100%" :height "100%"}}
    [:div#left-bar
@@ -90,6 +116,7 @@
     [tags-list]
     ]
    [:div#content-panel
+    [edit-tab-banner]
     [entry-crud-block]
     [notes-block]]])
 

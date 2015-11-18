@@ -23,7 +23,7 @@
   )
 
 (defn ^:export init []
-  (registry/init-appstate-registry)
+  ;; (registry/init-appstate-registry)
   (views/render-root)
   ;; (views/inspect-hiccup)
   ;; (hello)p

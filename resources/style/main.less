@@ -10,8 +10,16 @@ html, body {
     box-sizing:border-box;
     -moz-box-sizing:border-box;
     -webkit-box-sizing:border-box;
+    margin: 0;
+    padding: 0;
 }
 
+ul {
+    list-style-type: none;
+}
+ul li {
+    padding-left: 1em;
+}
 .clear:after {
     content: " ";
     display: table;
@@ -78,9 +86,24 @@ div#content-panel {
     float: right;
     width: 80%;
     height: 100%;
-    padding-left: 2em;
+    // padding-left: 2em;
     background-color: "white";
     border-left: 1px dotted gray;
+    div#edit-tab-banner {
+        border: 1px solid blue;
+        margin-left: 0;
+        ul#tab-banner {
+            list-style-type: none;
+            overflow: hidden;
+            li {
+                float: left;
+                padding: .4em;
+            }
+            li.active {
+                background-color: lightblue;
+            }
+        }
+    }
     div#edit-block {
         // height: 4em;
         border-bottom: 1px dotted gray;
