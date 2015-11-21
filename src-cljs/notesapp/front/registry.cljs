@@ -3,6 +3,7 @@
    [cljs.pprint :refer [pprint]]
    [clojure.string :as str]
    [reagent.core :as reagent :refer [atom]]
+   [reagent.ratom :refer [make-reaction]]
    [ajax.core :refer [GET POST]]
    [re-frame.core :as re-frame :refer
     [register-handler debug path trim-v after register-sub subscribe dispatch dispatch-sync]])
@@ -82,12 +83,6 @@
 (defn query-initialized [db _]
   (reaction (not (:loading-home-data? @db))))
 
-(defn query-sorted-tags [db _]
-  (reaction
-   (mapv #(get % 1) (sort-by (fn [[k v]] (:updated-at v))
-                     #(compare %2 %1)
-                     (:tags @db)))))
-
 (defn query-sorted-notes [db _]
   (reaction
    (mapv #(get % 1) (sort-by (fn [[k v]] (:updated-at v))
@@ -98,73 +93,147 @@
 (defn substr-match? [target-str filter-str]
   (> (.indexOf (.toLowerCase target-str) (.toLowerCase filter-str)) -1))
 
-(defn query-filtered-tags [db _]
-  (reaction
-   (let [sorted-tags
-         (reaction
-          (mapv #(get % 1)
-                (sort-by (fn [[k v]] (:updated-at v)) #(compare %2 %1) (:tags @db))))
-         ;; (subscribe [:sorted-tags])
-         filter-str (reaction (:tag-filter-str @db))
-         ]
-     ;; (println "filter str:" @filter-str)
-     (if (clojure.string/blank? @filter-str)
-       @sorted-tags
-       (filterv
-        #(substr-match? (:tag-name %) @filter-str)
-        @sorted-tags)))))
+(defn sort-tags-by [db sort-key]
+  (mapv #(get % 1)
+        (sort-by (fn [[k v]] (sort-key v))
+                 #(compare %2 %1)
+                 (:tags db))))
 
-(defn query-matched-tags [db _]
-  (reaction
-   (let [sorted-tags
-         (reaction
-          (mapv #(get % 1)
-                (sort-by (fn [[k v]] (:updated-at v)) #(compare %2 %1) (:tags @db))))
-         ;; (subscribe [:sorted-tags])
-         match-str (reaction (:tags-match-str @db))
-         ]
-     ;; (println "filter str:" @filter-str)
-     (if (clojure.string/blank? @match-str)
-       []
-       (filterv
-        #(substr-match? (:tag-name %) @match-str)
-        @sorted-tags)))))
+(defn filtered-tags [sorted-tags tags-filter]
+  (if (clojure.string/blank? tags-filter)
+      sorted-tags
+      (filterv
+       #(substr-match? (:tag-name %) tags-filter)
+       sorted-tags)))
 
+(defn matched-tags [sorted-tags tag-match-str]
+  (if (clojure.string/blank? tag-match-str)
+      []
+      (filterv
+       #(substr-match? (:tag-name %) tag-match-str)
+       sorted-tags)))
 
-(defn display-sorted-tags []
-  ;; (dispatch-sync [:reset-tags sample-tags])
-  ;; (dispatch-sync [:set-tags-filter "养"])
-  (dispatch-sync [:set-tags-match-str "养"])
-  (pprint @(subscribe [:matched-tags]))
+(defn test-handle-and-sub []
+  (dispatch-sync [:update-cti "xxx yyy"])
+  (pprint @(subscribe [:cti]))
   nil)
 
 (defn set-tags-filter [db [_ filter-str]]
   ;; (println "set tags filter..." filter-str)
   (-> db
-      (assoc :tag-filter-str (str/trim (or filter-str "")))))
+      (assoc :tags-filter (str/trim (or filter-str "")))))
 
-(defn set-tags-match-str [db [_ tags-input-str]]
+(defn set-candidate-tag-index [db [_ i]]
+  (assert (number? i) "cti should be a number")
   (-> db
-      (assoc :tags-match-str (str/trim (or tags-input-str "")))))
+      (assoc :candidate-tag-index i)))
 
+(defn next-cti [curr-index ctc v]
+  (assert (every? number? [curr-index ctc v]))
+  (assert (> ctc 0))
+  (println curr-index ctc v)
+  (let [after-v (+ curr-index v)
+        max-index (- ctc 1)]
+    ;; (println "mod: " (mod after-v ctc) ", max-index: " max-index)
+    (cond
+      (< after-v 0) max-index
+      (> after-v max-index) (mod after-v ctc)
+      :else after-v)))
 
 
 (defn init-appstate-registry []
   (re-frame/clear-event-handlers!)
   (re-frame/clear-sub-handlers!)
+  (register-handler
+   :init-db
+   (fn [db _]
+     (-> db
+         (assoc :candidate-tag-index -1)
+         (assoc :selected-tags []))))
   (register-handler :reset-tags nil reset-tags)
   (register-handler :load-home-data load-home-data)
   (register-handler :reset-notes nil reset-notes)
+
   (register-handler :set-tags-filter set-tags-filter)
-  (register-handler :set-tags-match-str set-tags-match-str)
-  (register-sub :sorted-tags query-sorted-tags)
-  (register-sub :filtered-tags query-filtered-tags)
-  (register-sub :matched-tags query-matched-tags)
+  (register-sub
+   :tags-filter
+   (fn [db _]
+     (make-reaction (fn tags-filter [] (get-in @db [:tags-filter])))))
+  (register-sub
+   :sorted-tags
+   (fn [db _]
+     (reaction (sort-tags-by @db :updated-at))))
+  (register-sub
+   :filtered-tags
+   (fn [db _]
+     (let [sorted-tags (subscribe [:sorted-tags])
+           tags-filter (subscribe [:tags-filter])]
+       (make-reaction (fn ftags [] (filtered-tags @sorted-tags @tags-filter))))))
+
+  (register-handler
+   :set-tag-match-str
+   (fn [db [_ tag-input]]
+     (-> db
+         (assoc :tag-match-str (str/trim (or tag-input "")))))) 
+  (register-sub
+   :tag-match-str
+   (fn [db _] (reaction (:tag-match-str @db))))
+
+  (register-handler
+   :set-active-tab
+   (fn [db [_ tab-id]] (assoc db :active-tab tab-id)))
+  (register-sub
+   :active-tab
+   (fn [db _] (reaction (:active-tab @db))))
+  
+  (register-handler
+   :update-cti  ;; cti: candidate tag index
+   (fn [db [_ arg]]
+     (println "arg: " arg)
+     (if (= arg :reset)
+       (assoc db :candidate-tag-index -1)
+       (let [cur-index (:candidate-tag-index db)
+             candidate-count
+             (count (matched-tags (sort-tags-by db :updated-at) (:tag-match-str db)))]
+         (println "ci:" cur-index)
+         (println "cc: " candidate-count)
+         (if (> candidate-count 0)
+           (assoc db :candidate-tag-index (next-cti cur-index candidate-count arg))
+           db)
+         ))))
+  (register-sub
+   :cti
+   (fn [db _] (reaction (:candidate-tag-index @db))))
+
+  (register-handler
+   :append-selected-tag
+   (fn [db [_ tag-id tag-name]]
+     (println "append-selected-tag: " tag-id tag-name)
+     (-> db
+         (assoc
+          :selected-tags
+          (conj (:selected-tags db) {:tag-id tag-id :tag-name tag-name})))))
+
+  (register-sub
+   :selected-tags
+   (fn [db _] (reaction (:selected-tags @db))))
+
+  (register-sub
+   :matched-tags
+   (fn [db _]
+     (let [sorted-tags (subscribe [:sorted-tags])
+           tag-match-str (subscribe [:tag-match-str])]
+       (reaction
+        (if (clojure.string/blank? @tag-match-str)
+          []
+          (filterv #(substr-match? (:tag-name %) @tag-match-str) @sorted-tags))))))
   (register-sub :sorted-notes query-sorted-notes)
   (register-sub :home-data-loaded? query-initialized)
+  (register-sub :all-db (fn [db _] (reaction @db)))
+  (dispatch-sync [:init-db])
   (dispatch-sync [:load-home-data])
   (js/setTimeout #(dispatch-sync [:reset-tags sample-tags]) 1000)
   ;; (get-tags)
-  (get-notes)
+  ;; (get-notes)
   )
-  
+

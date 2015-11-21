@@ -11,7 +11,7 @@ var onError = function (err) {
 };
 
 gulp.task('css', function () {
-    gulp.src('./resources/style/main.less')
+    gulp.src(['./resources/style/main.less', './resources/style/try.less'])
     .pipe(sourcemaps.init())
     .pipe(less())
     .on('error', onError)

@@ -3,15 +3,16 @@
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]
             [cljs.pprint :refer [pprint]]))
 
-(declare dispatch-user-input handle-tags-input)
+(declare dispatch-user-input handle-tags-input note-tags-input)
 
 (defn tags-filter []
   (let [
         ;; val (atom "")
         ]
     (fn []
-      [:input#tags-filter {:type "text"
-                           :on-change #(dispatch-user-input :set-tags-filter %)}])))
+      [:div#tags-filter
+       [:input {:type "text" :class "form-control"
+                            :on-change #(dispatch-user-input :set-tags-filter %)}]])))
 (defn dispatch-user-input [event-id dom-evt]
   (let [iv (-> dom-evt .-target .-value)]
     (dispatch-sync [event-id iv])))
@@ -42,15 +43,26 @@
     {:component-did-mount #(.focus (reagent/dom-node %))}))
 
 ;; enter: 13, tab: 9, esc: 27, arrow down: 40, up: 38
-(def key-codes-map {:enter 13 :esc 27 :down 40 :up 38})
-(defn debug-event [e]
+(def key-codes-map {:enter 13 :esc 27 :down 40 :up 38 :tab 9})
+(defn handle-tags-input [e matched-tags cti]
   (let [keyCode (.-keyCode e)]
     (println "key code:" keyCode ", is number? " (number? keyCode) ", ctrl: " (.-ctrlKey e))
-    ;; (println "event properties:" (js/Object.keys e))
     (condp #(= (get key-codes-map %1) %2) keyCode
       :esc (do (set! (.-value (.-target e)) "")
-               (dispatch-sync [:set-tags-match-str ""])
+               (dispatch-sync [:set-tag-match-str ""])
                (.preventDefault e))
+      :down (do (dispatch-sync [:update-cti 1])
+                (.preventDefault e))
+      :up (do (dispatch-sync [:update-cti -1])
+              (.preventDefault e))
+      :enter (do
+               (let [selected-tag (get matched-tags cti)]
+                 (println "selected-tag: " selected-tag)
+                 (if selected-tag
+                   (dispatch-sync [:append-selected-tag (:id selected-tag) (:tag-name selected-tag)])))
+               (set! (.-value (.-target e)) "")
+               (dispatch-sync [:set-tag-match-str ""]))
+      
       nil)
     ))
 
@@ -62,33 +74,68 @@
 (defn tag-completions-div []
   (let [matched-tags (subscribe [:matched-tags])]
     (fn []
-      [:div#completions
-       (for [tag-candidate @matched-tags]
-         (let [{:keys [id]} tag-candidate]
-           [:p {:key (:id tag-candidate)} (:tag-name tag-candidate)]))])))
+      )))
 
-(defn entry-crud-block []
-  (let []
+(defn note-tab []
+  (let [active-tab (subscribe [:active-tab])
+        selected-tags (subscribe [:selected-tags])]
     (fn []
-      [:div#edit-block
+      [:div#edit-block {:style {:display (if (= @active-tab :note-tab) "block" "none")}}
+       [:div {:class "clear"}
+        [:div {:class "left-label"}
+         [:label "笔记内容"]]
+        [:div {:class "right-field"}
+         [:textarea {:id "new-tag" :class "form-control" :rows 3
+                                      ;; :on-change nil :on-key-down debug-event
+                     }]]]
+       [:div#tags-block
+        [:span "标签"]
+        (for [tag @selected-tags]
+          [:span.notetag {:key (:tag-id tag)} (:tag-name tag)])
+        [note-tags-input]]
+       [:button {:type "submit" :class "btn btn-default"
+                 :on-click handle-submit} "保存"]])))
+
+(defn note-tags-input []
+  (let [matched-tags (subscribe [:matched-tags])
+        cti (subscribe [:cti])]
+    (fn []
+      (println "cti value:" @cti)
+      [:span#tags-wrapper
+       [:input#note-tags
+        {:type "text"
+         :on-change #(dispatch-user-input :set-tag-match-str %)
+         :on-key-down #(handle-tags-input % @matched-tags @cti)}]
+       [:div#completions
+        (doall
+         (map (fn [tag index]
+                (let [props {:key (:id tag)}]
+                  [:p
+                   (if (= @cti index) (assoc props :class "selected") props)
+                   (:tag-name tag)]))
+              @matched-tags (range 0 (count @matched-tags))))]
+       ])))
+
+(defn tag-tab []
+  (let [active-tab (subscribe [:active-tab])]
+    (fn []
+      [:div#tag-tab {:style {:display (if (= @active-tab :tag-tab) "block" "none")}}
        ;; [initial-focus-wrapper]
-       [:input {:id "new-tag" :type "text" :on-change nil
+       [:span "标签名: "]
+       [:input {:id "tag-name" :type "text" :on-change nil
                 ;; :on-key-down debug-event
                 }]
+       [:br]
+       [:span "标签描述: "]
+       [:textarea {:id "tag-description" :rows 3 :width "100%" :on-change nil
+                   ;; :on-key-down debug-event
+                   }]
+       [:br]       
        [:button {:type "submit"
-                 :on-click handle-submit} "保存"]
-       [:div#tags-block
-        [:span.notetag "tag-1"]
-        [:span.notetag "tag-2"]
-        [:span.notetag "tag-3"]
-        [:span#tags-wrapper
-         [:input#note-tags
-          {:type "text"
-           :on-change #(dispatch-user-input :set-tags-match-str %)
-           :on-key-down handle-tags-input}]
-         [tag-completions-div]]]])))
-(defn handle-tags-input [e]
-  (debug-event e))
+                 :on-click handle-submit} "保存标签"]
+       ])))
+
+(defn tab-blocks [])
 
 (defn notes-block []
   (let [notes (subscribe [:sorted-notes])]
@@ -101,14 +148,24 @@
             [:li {:key (:id note) :on-click nil}
              [:p (:content note)]
              [:p (str "最后修改时间: " (:updated-at note))]]))
-        ;; [:p "hello, notes block"]
         ]])))
 
 (defn edit-tab-banner []
-  [:div#edit-tab-banner.clear
-   [:ul#tab-banner
-    [:li.active "笔记"]
-    [:li "标签"]]])
+  (let [active-tab (subscribe [:active-tab])]
+    (fn []
+      ;; (println "active-tab:" @active-tab)
+      [:div#edit-tab-banner.clear
+       [:ul {:class "nav nav-tabs"}
+        [:li
+         {:on-click
+          (fn [e] (dispatch-sync [:set-active-tab :note-tab]))
+          :class (if (= @active-tab :note-tab) "active" "")}
+         [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "笔记"]]
+        [:li
+         {:on-click (fn [e] (dispatch-sync [:set-active-tab :tag-tab]))
+          :class (if (= @active-tab :tag-tab) "active" "")}
+         [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "标签"]]]])))
+
 (defn main-panel []
   [:div {:style {:width "100%" :height "100%"}}
    [:div#left-bar
@@ -117,7 +174,8 @@
     ]
    [:div#content-panel
     [edit-tab-banner]
-    [entry-crud-block]
+    [note-tab]
+    [tag-tab]
     [notes-block]]])
 
 (defn top-panel []
