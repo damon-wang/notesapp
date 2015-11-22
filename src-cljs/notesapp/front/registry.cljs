@@ -66,7 +66,21 @@
    "2" {:id 2 :tag-name "javascript" :description "the javascript language for web"
             :updated-at "2015-11-13"}
    "3" {:id 3 :tag-name "营养" :description "有关营养方面的知识" :updated-at "2015-11-09"}
+   "4" {:id 4 :tag-name "Emacs" :updated-at "2015-11-01"}
+   "5" {:id 5 :tag-name "Eclipse" :updated-at "2015-10-01"}
+   "6" {:id 6 :tag-name "Ruby" :updated-at "2015-10-21"}
+   "7" {:id 7 :tag-name "React" :updated-at "2015-11-21"}
+   "8" {:id 8 :tag-name "joc/ch01" :updated-at "2015-11-02"}
+   "9" {:id 9 :tag-name "joc/ch03" :updated-at "2015-11-02"}
+   "10" {:id 10 :tag-name "joc/ch05" :updated-at "2015-11-03"}
    })
+
+
+(defn tags-map-by-name [tags]
+  (reduce
+   (fn [acc n]
+     (conj acc [(.toLowerCase (:tag-name (get n 1))) (get n 1)]))
+   {} tags))
 
 (defn reset-notes [db [_ notes]]
   (-> db
@@ -207,12 +221,15 @@
 
   (register-handler
    :append-selected-tag
-   (fn [db [_ tag-id tag-name]]
+   [trim-v]
+   (fn [db [tag-id tag-name]]
      (println "append-selected-tag: " tag-id tag-name)
-     (-> db
-         (assoc
-          :selected-tags
-          (conj (:selected-tags db) {:tag-id tag-id :tag-name tag-name})))))
+     (let [st (:selected-tags db)
+           st-count (count st)]
+       (-> db
+           (assoc
+            :selected-tags
+            (conj st {:seq-id st-count :tag-id tag-id :tag-name tag-name}))))))
 
   (register-sub
    :selected-tags
@@ -222,11 +239,32 @@
    :matched-tags
    (fn [db _]
      (let [sorted-tags (subscribe [:sorted-tags])
+           selected-tags (subscribe [:selected-tags])
            tag-match-str (subscribe [:tag-match-str])]
        (reaction
-        (if (clojure.string/blank? @tag-match-str)
-          []
-          (filterv #(substr-match? (:tag-name %) @tag-match-str) @sorted-tags))))))
+        (let [selected-tag-id-set (into #{} (mapv :tag-id @selected-tags))]
+          ;; (println "selected-tag-id-set: " selected-tag-id-set)
+          (if (clojure.string/blank? @tag-match-str)
+            []
+            (filterv
+             (fn [tag]
+               (let [pred-a (substr-match? (:tag-name tag) @tag-match-str)
+                     pred-b (not (contains? selected-tag-id-set (:id tag)))]
+                 ;; (println "for tag: " tag pred-a pred-b)
+                 (and pred-a pred-b)))
+             @sorted-tags)))))))
+
+  (register-sub
+   :tags
+   (fn [db _]
+     (reaction (:tags @db))))
+
+  (register-sub
+   :tags-map-by-name
+   (fn [db _]
+     (let [tags (subscribe [:tags])]
+       (reaction (tags-map-by-name @tags)))))
+
   (register-sub :sorted-notes query-sorted-notes)
   (register-sub :home-data-loaded? query-initialized)
   (register-sub :all-db (fn [db _] (reaction @db)))
@@ -236,4 +274,10 @@
   ;; (get-tags)
   ;; (get-notes)
   )
+
+(defn pp [v]
+  (dorun (pprint v)))
+
+(defn ppx []
+  (pp @(subscribe [:selected-tags])))
 

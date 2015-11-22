@@ -11,8 +11,7 @@
         ]
     (fn []
       [:div#tags-filter
-       [:input {:type "text" :class "form-control"
-                            :on-change #(dispatch-user-input :set-tags-filter %)}]])))
+       [:input {:type "text" :on-change #(dispatch-user-input :set-tags-filter %)}]])))
 (defn dispatch-user-input [event-id dom-evt]
   (let [iv (-> dom-evt .-target .-value)]
     (dispatch-sync [event-id iv])))
@@ -42,11 +41,15 @@
   (with-meta identity
     {:component-did-mount #(.focus (reagent/dom-node %))}))
 
+(defn not-selected? [selected-tags tag-name]
+  (empty?
+   (filter #(= (.toLowerCase tag-name) (.toLowerCase (:tag-name %))) selected-tags)))
+
 ;; enter: 13, tab: 9, esc: 27, arrow down: 40, up: 38
 (def key-codes-map {:enter 13 :esc 27 :down 40 :up 38 :tab 9})
-(defn handle-tags-input [e matched-tags cti]
+(defn handle-tags-input [e matched-tags cti tags-map-by-name selected-tags]
   (let [keyCode (.-keyCode e)]
-    (println "key code:" keyCode ", is number? " (number? keyCode) ", ctrl: " (.-ctrlKey e))
+    ;; (println "key code:" keyCode ", is number? " (number? keyCode) ", ctrl: " (.-ctrlKey e))
     (condp #(= (get key-codes-map %1) %2) keyCode
       :esc (do (set! (.-value (.-target e)) "")
                (dispatch-sync [:set-tag-match-str ""])
@@ -59,9 +62,21 @@
                (let [selected-tag (get matched-tags cti)]
                  (println "selected-tag: " selected-tag)
                  (if selected-tag
-                   (dispatch-sync [:append-selected-tag (:id selected-tag) (:tag-name selected-tag)])))
+                   (do
+                     ;; selected-tags will be not in matched-tags 
+                     ;; (if (not-selected? selected-tags (:tag-name selected-tag)))
+                     (dispatch-sync [:append-selected-tag (:id selected-tag) (:tag-name selected-tag)]))
+                   (do
+                     (println "no tag selected")
+                     (if-let [matched-tag (get tags-map-by-name (.toLowerCase (.-value (.-target e))))]
+                       (do
+                         (println "but input match tag:" matched-tag)
+                         (dispatch-sync
+                          [:append-selected-tag (:id matched-tag) (:tag-name matched-tag)])))
+                     )))
                (set! (.-value (.-target e)) "")
-               (dispatch-sync [:set-tag-match-str ""]))
+               (dispatch-sync [:set-tag-match-str ""])
+               (dispatch-sync [:update-cti :reset]))
       
       nil)
     ))
@@ -80,32 +95,41 @@
   (let [active-tab (subscribe [:active-tab])
         selected-tags (subscribe [:selected-tags])]
     (fn []
-      [:div#edit-block {:style {:display (if (= @active-tab :note-tab) "block" "none")}}
-       [:div {:class "clear"}
-        [:div {:class "left-label"}
-         [:label "笔记内容"]]
-        [:div {:class "right-field"}
-         [:textarea {:id "new-tag" :class "form-control" :rows 3
-                                      ;; :on-change nil :on-key-down debug-event
-                     }]]]
-       [:div#tags-block
-        [:span "标签"]
-        (for [tag @selected-tags]
-          [:span.notetag {:key (:tag-id tag)} (:tag-name tag)])
-        [note-tags-input]]
-       [:button {:type "submit" :class "btn btn-default"
-                 :on-click handle-submit} "保存"]])))
+      [:div#note-tab {:style {:display (if (= @active-tab :note-tab) "block" "none")}}
+       [:div.clear
+        [:div.row
+         [:div {:class "row-left"}
+          [:label "笔记内容"]]
+         [:div {:class "row-right"}
+          [:textarea {:id "new-tag" :rows 5
+                      ;; :on-change nil :on-key-down debug-event
+                      }]]]
+        [:div.row
+         [:div {:class "row-left"} [:label "标签"]]
+         [:div {:class "row-right"}
+          (for [tag @selected-tags]
+            [:span.notetag
+             {:key (:seq-id tag)
+              :on-click #(println "selected-tag-id" (:tag-id tag))}
+             (:tag-name tag)])
+          [note-tags-input]]]
+        [:button {:type "submit"
+                  :on-click handle-submit} "保存"]]])))
+
 
 (defn note-tags-input []
   (let [matched-tags (subscribe [:matched-tags])
-        cti (subscribe [:cti])]
+        cti (subscribe [:cti])
+        tags-map-by-name (subscribe [:tags-map-by-name])
+        selected-tags (subscribe [:selected-tags])]
     (fn []
-      (println "cti value:" @cti)
+      ;; (println "note-tags-input cti value:" @cti)
+      ;; (println "note-tags-input matched-tags" @matched-tags)
       [:span#tags-wrapper
        [:input#note-tags
         {:type "text"
          :on-change #(dispatch-user-input :set-tag-match-str %)
-         :on-key-down #(handle-tags-input % @matched-tags @cti)}]
+         :on-key-down #(handle-tags-input % @matched-tags @cti @tags-map-by-name @selected-tags)}]
        [:div#completions
         (doall
          (map (fn [tag index]
@@ -154,17 +178,17 @@
   (let [active-tab (subscribe [:active-tab])]
     (fn []
       ;; (println "active-tab:" @active-tab)
-      [:div#edit-tab-banner.clear
-       [:ul {:class "nav nav-tabs"}
-        [:li
-         {:on-click
-          (fn [e] (dispatch-sync [:set-active-tab :note-tab]))
-          :class (if (= @active-tab :note-tab) "active" "")}
-         [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "笔记"]]
-        [:li
-         {:on-click (fn [e] (dispatch-sync [:set-active-tab :tag-tab]))
-          :class (if (= @active-tab :tag-tab) "active" "")}
-         [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "标签"]]]])))
+      ;; [:div#edit-tab-banner.clear]
+      [:ul {:id "tab-banner"}
+       [:li
+        {:on-click
+         (fn [e] (dispatch-sync [:set-active-tab :note-tab]))
+         :class (if (= @active-tab :note-tab) "active" "")}
+        [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "笔记"]]
+       [:li
+        {:on-click (fn [e] (dispatch-sync [:set-active-tab :tag-tab]))
+         :class (if (= @active-tab :tag-tab) "active" "")}
+        [:a {:href "#" :on-click (fn [e] (.preventDefault e))} "标签"]]])))
 
 (defn main-panel []
   [:div {:style {:width "100%" :height "100%"}}
@@ -182,7 +206,8 @@
   (let [ready? (subscribe [:home-data-loaded?])]
     (fn []
       (if-not @ready?
-        [:div#loading [:p "正在加载..."]]
+        ;; [:div#loading [:p "正在加载..."]]
+        [:p#loading "正在加载..."]
         [main-panel]))))
 (defn render-root []
   ;; (dispatch-sync [:reset-tags xxx])
