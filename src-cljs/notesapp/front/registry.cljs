@@ -13,26 +13,11 @@
 
 (declare next-tag-id literal-db)
 
-(defn legacy-register-handlers []
-  (re-frame.core/clear-event-handlers!)
-  ;; (register-handler
-  ;;  :initialise-db
-  ;;  (fn [_ _] literal-db)
-  ;;  )
-  ;; (register-handler
-  ;;  :add-tag
-  ;;  [(path :tags) trim-v] ;; apply order: from index 0 to max index
-  ;;  (fn [tags [text]]
-  ;;    (let [id (next-tag-id tags)]
-  ;;      (assoc tags id {:id id :name text}))))
-  ;; (register-handler :set-match-str [trim-v] nil)
-  nil)
-
 (defn next-tag-id [tags]
   ((fnil inc 0) (last (keys tags))))
 
 (defn print-response [response]
-  (pprint response))
+  (pprint "ajax ok..."))
 
 (defn error-handler [{:keys [status status-text]}]
   (println (str "something bad happened: " status " " status-text)))
@@ -50,6 +35,16 @@
                  :response-format :transit
                  ;; :keywords? true
                  :error-handler error-handler}))
+(defn save-note [content tags]
+  (POST "/notes"
+        {:params {:note-content content :note-tags tags}
+         :format :json
+         :handler print-response
+         :error-handler error-handler})
+  nil)
+
+(defn try-save-note []
+  (save-note "xxx" {:tag 1}))
 
 (defn save-tag []
   (POST "/tags"
@@ -120,12 +115,18 @@
        #(substr-match? (:tag-name %) tags-filter)
        sorted-tags)))
 
-(defn matched-tags [sorted-tags tag-match-str]
-  (if (clojure.string/blank? tag-match-str)
+(defn matched-tags [sorted-tags selected-tags tag-match-str]
+  (let [selected-tag-id-set (into #{} (mapv :tag-id selected-tags))]
+    ;; (println "selected-tag-id-set: " selected-tag-id-set)
+    (if (clojure.string/blank? tag-match-str)
       []
       (filterv
-       #(substr-match? (:tag-name %) tag-match-str)
-       sorted-tags)))
+       (fn [tag]
+         (let [pred-a (substr-match? (:tag-name tag) tag-match-str)
+               pred-b (not (contains? selected-tag-id-set (:id tag)))]
+           ;; (println "for tag: " tag pred-a pred-b)
+           (and pred-a pred-b)))
+       sorted-tags))))
 
 (defn test-handle-and-sub []
   (dispatch-sync [:update-cti "xxx yyy"])
@@ -168,6 +169,12 @@
   (register-handler :load-home-data load-home-data)
   (register-handler :reset-notes nil reset-notes)
 
+  (register-handler
+   :save-note
+   (fn [db _]
+     (save-note (:note-content db) (:selected-tags db))
+     db))
+
   (register-handler :set-tags-filter set-tags-filter)
   (register-sub
    :tags-filter
@@ -194,6 +201,16 @@
    (fn [db _] (reaction (:tag-match-str @db))))
 
   (register-handler
+   :set-note-content
+   [trim-v]
+   (fn [db [note-input]]
+     (-> db
+         (assoc :note-content (str/trim (or note-input ""))))))
+  (register-sub
+   :note-content
+   (fn [db _] (reaction (:note-content @db))))
+
+  (register-handler
    :set-active-tab
    (fn [db [_ tab-id]] (assoc db :active-tab tab-id)))
   (register-sub
@@ -208,7 +225,10 @@
        (assoc db :candidate-tag-index -1)
        (let [cur-index (:candidate-tag-index db)
              candidate-count
-             (count (matched-tags (sort-tags-by db :updated-at) (:tag-match-str db)))]
+             (count (matched-tags
+                     (sort-tags-by db :updated-at)
+                     (:selected-tags db)
+                     (:tag-match-str db)))]
          (println "ci:" cur-index)
          (println "cc: " candidate-count)
          (if (> candidate-count 0)
@@ -242,17 +262,7 @@
            selected-tags (subscribe [:selected-tags])
            tag-match-str (subscribe [:tag-match-str])]
        (reaction
-        (let [selected-tag-id-set (into #{} (mapv :tag-id @selected-tags))]
-          ;; (println "selected-tag-id-set: " selected-tag-id-set)
-          (if (clojure.string/blank? @tag-match-str)
-            []
-            (filterv
-             (fn [tag]
-               (let [pred-a (substr-match? (:tag-name tag) @tag-match-str)
-                     pred-b (not (contains? selected-tag-id-set (:id tag)))]
-                 ;; (println "for tag: " tag pred-a pred-b)
-                 (and pred-a pred-b)))
-             @sorted-tags)))))))
+        (matched-tags @sorted-tags @selected-tags @tag-match-str)))))
 
   (register-sub
    :tags
@@ -279,5 +289,5 @@
   (dorun (pprint v)))
 
 (defn ppx []
-  (pp @(subscribe [:selected-tags])))
+  (pp @(subscribe [:note-content])))
 

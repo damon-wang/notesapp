@@ -13,10 +13,9 @@ html, body {
 }
 
 ul {
-    list-style-type: none;
-}
-ul li {
-    padding-left: 1em;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 .clear:after {
     content: " ";
@@ -115,34 +114,37 @@ div#content-panel {
     background-color: "white";
     border-left: 1px solid gray;
     ul#tab-banner {
-        list-style-type: none;
+        list-style: none;
         overflow: hidden;
-        // margin-top: 4px;
+        margin-top: 4px;
         margin-bottom: 1em;
-        font-size: 1.4em;
+        font-size: 1.2em;
         // background-color: orange;
-        border-bottom: 1px solid gray;
+        border-bottom: 1px solid #DDDDDD;
         li {
-            height: 100%;
-            display: inline-block;
-            float: left;
-            padding: .4em 1em;
+            // height: 100%;
+            display: inline;
+            margin-right: 1em;
             a {
+                display: inline-block;
+                border-bottom: none;
+                padding: 5px 15px 5px 15px;
+                border: 1px solid #DDDDDD;
+                border-bottom: none;
                 text-decoration: none;
             }
         }
-        li.active {
-            // background-color: lightblue;
-            border-bottom: 4px solid orange;
-            // margin-top: -4px;
+        li.active a {
+            background-color: lightblue;
+            border: none;
+            color: black;
         }
     }
     div#note-tab {
-        // height: 4em;
-        // width: 80%;
-        border: 1px solid purple;
+        border: 1px solid #CCCCCC;
         .row {
-            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #CCCCCC;
         }
         .row-left {
             float: left;
@@ -153,7 +155,7 @@ div#content-panel {
             width: 90%;
         }
         label {
-            float: left;
+            // float: left;
             font-weight: bold;
             width: 100%;
         }
@@ -167,10 +169,13 @@ div#content-panel {
         }
         span#tags-wrapper {
             position: relative;
+            input#tags-input {
+                width: 15em;
+            }
             div#completions {
                 width: 100%;
                 background-color: white;
-                // border: 1px solid gray;
+                border: 1px solid #eeeeee;
 
                 position: absolute;
                 padding: .4em;
@@ -182,7 +187,7 @@ div#content-panel {
                     padding: 0;
                 }
                 p.selected {
-                    background-color: blue;
+                    background-color: #aaff66;
                 }
             }
         }

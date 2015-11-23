@@ -78,4 +78,4 @@
   (require '[clj-ns-browser.sdoc :as sdoc])
   ((resolve 'sdoc/sdoc*))) ;; sdoc is a macro, resolved result can't be one macro
 
-(start-nrepl-server)
+;; (start-nrepl-server)

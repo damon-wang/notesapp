@@ -53,6 +53,7 @@
     (condp #(= (get key-codes-map %1) %2) keyCode
       :esc (do (set! (.-value (.-target e)) "")
                (dispatch-sync [:set-tag-match-str ""])
+               (dispatch-sync [:update-cti :reset])
                (.preventDefault e))
       :down (do (dispatch-sync [:update-cti 1])
                 (.preventDefault e))
@@ -68,11 +69,17 @@
                      (dispatch-sync [:append-selected-tag (:id selected-tag) (:tag-name selected-tag)]))
                    (do
                      (println "no tag selected")
-                     (if-let [matched-tag (get tags-map-by-name (.toLowerCase (.-value (.-target e))))]
-                       (do
-                         (println "but input match tag:" matched-tag)
-                         (dispatch-sync
-                          [:append-selected-tag (:id matched-tag) (:tag-name matched-tag)])))
+                     (let [input-str (.toLowerCase (.-value (.-target e)))]
+                       (if-let [matched-tag (get tags-map-by-name input-str)]
+                         (do
+                           (println "but input match tag:" matched-tag)
+                           (if (not-selected? selected-tags input-str)
+                             (dispatch-sync
+                              [:append-selected-tag (:id matched-tag) (:tag-name matched-tag)])
+                             (do
+                               (println "but already selected"))))
+                         (do
+                           (println "will as a new tag:" input-str))))
                      )))
                (set! (.-value (.-target e)) "")
                (dispatch-sync [:set-tag-match-str ""])
@@ -80,11 +87,6 @@
       
       nil)
     ))
-
-(defn handle-submit [e]
-  (let [el (.getElementById js/document "new-tag")]
-    (println (.-value el))
-    (set! (.-value el) "")))
 
 (defn tag-completions-div []
   (let [matched-tags (subscribe [:matched-tags])]
@@ -96,25 +98,24 @@
         selected-tags (subscribe [:selected-tags])]
     (fn []
       [:div#note-tab {:style {:display (if (= @active-tab :note-tab) "block" "none")}}
-       [:div.clear
-        [:div.row
-         [:div {:class "row-left"}
-          [:label "笔记内容"]]
-         [:div {:class "row-right"}
-          [:textarea {:id "new-tag" :rows 5
-                      ;; :on-change nil :on-key-down debug-event
-                      }]]]
-        [:div.row
-         [:div {:class "row-left"} [:label "标签"]]
-         [:div {:class "row-right"}
-          (for [tag @selected-tags]
-            [:span.notetag
-             {:key (:seq-id tag)
-              :on-click #(println "selected-tag-id" (:tag-id tag))}
-             (:tag-name tag)])
-          [note-tags-input]]]
-        [:button {:type "submit"
-                  :on-click handle-submit} "保存"]]])))
+       [:div.row.clear
+        [:div {:class "row-left"}
+         [:label "笔记内容"]]
+        [:div {:class "row-right"}
+         [:textarea {:id "new-tag" :rows 5
+                     :on-change #(dispatch-user-input :set-note-content %)
+                     }]]]
+       [:div.row.clear
+        [:div {:class "row-left"} [:label "标签"]]
+        [:div {:class "row-right"}
+         (for [tag @selected-tags]
+           [:span.notetag
+            {:key (:seq-id tag)
+             :on-click #(println "selected-tag-id" (:tag-id tag))}
+            (:tag-name tag)])
+         [note-tags-input]]]
+       [:button {:type "submit"
+                 :on-click #(dispatch-sync [:save-note])} "保存"]])))
 
 
 (defn note-tags-input []
@@ -126,18 +127,19 @@
       ;; (println "note-tags-input cti value:" @cti)
       ;; (println "note-tags-input matched-tags" @matched-tags)
       [:span#tags-wrapper
-       [:input#note-tags
+       [:input#tags-input
         {:type "text"
          :on-change #(dispatch-user-input :set-tag-match-str %)
          :on-key-down #(handle-tags-input % @matched-tags @cti @tags-map-by-name @selected-tags)}]
-       [:div#completions
-        (doall
-         (map (fn [tag index]
-                (let [props {:key (:id tag)}]
-                  [:p
-                   (if (= @cti index) (assoc props :class "selected") props)
-                   (:tag-name tag)]))
-              @matched-tags (range 0 (count @matched-tags))))]
+       (when (> (count @matched-tags) 0)
+         [:div#completions
+          (doall
+           (map (fn [tag index]
+                  (let [props {:key (:id tag)}]
+                    [:p
+                     (if (= @cti index) (assoc props :class "selected") props)
+                     (:tag-name tag)]))
+                @matched-tags (range 0 (count @matched-tags))))])
        ])))
 
 (defn tag-tab []
@@ -156,7 +158,7 @@
                    }]
        [:br]       
        [:button {:type "submit"
-                 :on-click handle-submit} "保存标签"]
+                 :on-click #(dispatch-sync [:create-tag])} "保存标签"]
        ])))
 
 (defn tab-blocks [])

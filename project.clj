@@ -71,6 +71,14 @@
       :output-dir "resources/public/js/out"
       ;; :source-map-timestamp true
       :source-map true}}}}
+  :repl-options
+  {
+   ;; :nrepl-middleware
+   ;; ["cider.nrepl/cider-middleware"
+   ;;  "refactor-nrepl.middleware/wrap-refactor"
+   ;;  "cemerick.piggieback/wrap-cljs-repl"
+   ;;  ]
+   }  
   
   :profiles
   {:uberjar {:omit-source true
@@ -88,9 +96,11 @@
    :project/dev  {:dependencies [[ring/ring-mock "0.3.0"]
                                  [ring/ring-devel "1.4.0"]
                                  [pjstadig/humane-test-output "0.7.0"]
-                                 [com.cemerick/piggieback "0.1.5"]
-                                 [lein-figwheel "0.4.1"]
-                                 [cider/cider-nrepl "0.10.0-SNAPSHOT"]
+                                 [com.cemerick/piggieback "0.2.1"]
+                                 ;; [lein-figwheel "0.4.1"]
+                                 ;; [org.clojure/tools.nrepl "0.2.12"]
+                                 ;; [cider/cider-nrepl "0.10.0-SNAPSHOT"]
+                                 [cider/cider-nrepl "0.9.1"]  ;; 0.10.0-SNAPSHOT
                                  ;; [refactor-nrepl "1.1.0"]
                                  [mvxcvi/puget "1.0.0"]]
                   :plugins [[lein-figwheel "0.4.1"]]

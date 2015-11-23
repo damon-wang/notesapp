@@ -4,6 +4,7 @@
             [ring.util.http-response :refer [ok]]
             [clj-time.core :as tc]
             [clj-time.coerce :as tco]
+            [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]))
 
 (defn tags []
@@ -30,10 +31,15 @@
                     :created_at now :updated_at now})
     (ok "save success")))
 
+(defn save-note [content tags]
+  (pprint [content tags])
+  (ok "save note success"))
+
 (defroutes app-routes
   (GET "/tags" [] (tags))
   (POST "/tags" [tname desc] (save-tag tname desc))
   (GET "/notes" [] (notes))
+  (POST "/notes" [note-content note-tags] (save-note note-content note-tags))
   ;; (GET "/docs" [] (ok (-> "docs/docs.md" io/resource slurp)))
   )
 
